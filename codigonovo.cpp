@@ -1,6 +1,7 @@
 #include "net.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp> // Para exibir vídeos
 #include <stdio.h>
 #include <vector>
 
@@ -17,9 +18,6 @@ static int detect_mobilenet(const cv::Mat& bgr, std::vector<Object>& objects)
 
     mobilenet.opt.use_vulkan_compute = true;
 
-    // Modelo convertido de https://github.com/chuanqi305/MobileNet-SSD
-    // e pode ser baixado de https://drive.google.com/open?id=0ByaKLD9QaPtucWk0Y0dha1VVY0U
-    // O modelo ncnn está em https://github.com/nihui/ncnn-assets/tree/master/models
     if (mobilenet.load_param("mobilenet_ssd_voc_ncnn.param"))
         exit(-1);
     if (mobilenet.load_model("mobilenet_ssd_voc_ncnn.bin"))
@@ -86,24 +84,51 @@ int main(int argc, char** argv)
 {
     if (argc != 2)
     {
-        fprintf(stderr, "Uso: %s [caminho_da_imagem]\n", argv[0]);
+        fprintf(stderr, "Uso: %s [caminho_do_video]\n", argv[0]);
         return -1;
     }
 
-    const char* imagepath = argv[1];
+    const char* videopath = argv[1];
 
-    cv::Mat m = cv::imread(imagepath, 1);
-    if (m.empty())
+    // Abre o vídeo
+    cv::VideoCapture cap(videopath);
+    if (!cap.isOpened())
     {
-        fprintf(stderr, "Erro ao carregar a imagem: %s\n", imagepath);
+        fprintf(stderr, "Erro ao abrir o vídeo: %s\n", videopath);
         return -1;
     }
 
-    std::vector<Object> objects;
-    detect_mobilenet(m, objects);
+    cv::Mat frame;
+    while (true)
+    {
+        // Captura um frame do vídeo
+        cap >> frame;
+        if (frame.empty())
+            break; // Sai do loop se o vídeo terminar
 
-    // Em vez de exibir a imagem, apenas imprima os resultados
-    print_objects(m, objects);
+        // Detecta objetos no frame
+        std::vector<Object> objects;
+        detect_mobilenet(frame, objects);
+
+        // Exibe os resultados no console
+        print_objects(frame, objects);
+
+        // (Opcional) Exibe o frame com as detecções
+        for (size_t i = 0; i < objects.size(); i++)
+        {
+            const Object& obj = objects[i];
+            cv::rectangle(frame, obj.rect, cv::Scalar(0, 255, 0), 2); // Desenha retângulo
+            cv::putText(frame, class_names[obj.label], cv::Point(obj.rect.x, obj.rect.y - 5),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2); // Rótulo
+        }
+
+        cv::imshow("Video", frame); // Exibe o frame
+        if (cv::waitKey(1) == 27) // Aguarda 1 ms e verifica se a tecla ESC foi pressionada
+            break;
+    }
+
+    cap.release(); // Libera o vídeo
+    cv::destroyAllWindows(); // Fecha todas as janelas
 
     return 0;
 }
