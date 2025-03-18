@@ -1,9 +1,17 @@
 #include "net.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp> // Para exibir vídeos
+#include <opencv2/videoio.hpp>
 #include <stdio.h>
 #include <vector>
+
+// Declaração global de class_names
+static const char* class_names[] = {"background",
+                                   "aeroplane", "bicycle", "bird", "boat",
+                                   "bottle", "bus", "car", "cat", "chair",
+                                   "cow", "diningtable", "dog", "horse",
+                                   "motorbike", "person", "pottedplant",
+                                   "sheep", "sofa", "train", "tvmonitor"};
 
 struct Object
 {
@@ -62,14 +70,6 @@ static int detect_mobilenet(const cv::Mat& bgr, std::vector<Object>& objects)
 
 static void print_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
 {
-    static const char* class_names[] = {"background",
-                                        "aeroplane", "bicycle", "bird", "boat",
-                                        "bottle", "bus", "car", "cat", "chair",
-                                        "cow", "diningtable", "dog", "horse",
-                                        "motorbike", "person", "pottedplant",
-                                        "sheep", "sofa", "train", "tvmonitor"
-                                       };
-
     for (size_t i = 0; i < objects.size(); i++)
     {
         const Object& obj = objects[i];
@@ -90,7 +90,6 @@ int main(int argc, char** argv)
 
     const char* videopath = argv[1];
 
-    // Abre o vídeo
     cv::VideoCapture cap(videopath);
     if (!cap.isOpened())
     {
@@ -101,34 +100,16 @@ int main(int argc, char** argv)
     cv::Mat frame;
     while (true)
     {
-        // Captura um frame do vídeo
         cap >> frame;
         if (frame.empty())
-            break; // Sai do loop se o vídeo terminar
+            break;
 
-        // Detecta objetos no frame
         std::vector<Object> objects;
         detect_mobilenet(frame, objects);
 
-        // Exibe os resultados no console
         print_objects(frame, objects);
-
-        // (Opcional) Exibe o frame com as detecções
-        for (size_t i = 0; i < objects.size(); i++)
-        {
-            const Object& obj = objects[i];
-            cv::rectangle(frame, obj.rect, cv::Scalar(0, 255, 0), 2); // Desenha retângulo
-            cv::putText(frame, class_names[obj.label], cv::Point(obj.rect.x, obj.rect.y - 5),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2); // Rótulo
-        }
-
-        cv::imshow("Video", frame); // Exibe o frame
-        if (cv::waitKey(1) == 27) // Aguarda 1 ms e verifica se a tecla ESC foi pressionada
-            break;
     }
 
-    cap.release(); // Libera o vídeo
-    cv::destroyAllWindows(); // Fecha todas as janelas
-
+    cap.release();
     return 0;
 }
